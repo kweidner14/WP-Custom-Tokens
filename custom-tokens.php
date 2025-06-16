@@ -250,9 +250,9 @@ final class Custom_Tokens_Plugin {
         ?>
         <h4>Add Individual Token</h4>
         <table class="form-table" style="margin-top:0;">
-            <tr valign="top"><th scope="row"><label for="new_token_name">Token Name</label></th><td><input type="text" id="new_token_name" placeholder="e.g., my_custom_token" style="width: 200px" /></td></tr>
-            <tr valign="top"><th scope="row"><label for="new_token_label">Token Label</label></th><td><input type="text" id="new_token_label" placeholder="e.g., My Custom Token" style="width: 200px" /></td></tr>
-            <tr valign="top"><th scope="row"><label for="new_token_value">Token Value</label></th><td><input type="text" id="new_token_value" placeholder="e.g., The token value" style="width: 300px" /></td></tr>
+            <tr valign="top"><th scope="row"><label for="new_token_label">Token Label</label></th><td><input type="text" id="new_token_label" placeholder="My Custom Token" style="width: 200px" /></td></tr>
+            <tr valign="top"><th scope="row"><label for="new_token_value">Token Value</label></th><td><input type="text" id="new_token_value" placeholder="$199/year" style="width: 300px" /></td></tr>
+            <tr valign="top"><th scope="row"><label for="new_token_name">Token Name (Shortcode)</label></th><td><input type="text" id="new_token_name" placeholder="FLIP_Custom_Token" style="width: 200px" /></td></tr>
         </table>
         <button type="button" id="add_token_btn" class="button button-primary">Add Token</button>
         <?php
