@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: Custom Tokens
- * Description: A plugin to create and manage custom tokens (shortcodes) for use throughout your WordPress site.
- * Version: 1.0.6
+ * Description: A plugin to create and manage custom tokens (shortcodes)
+ * Version: 1.0.0
  * Author: Kyle Weidner
  */
 
