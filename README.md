@@ -65,6 +65,10 @@ For a token named `contact_email`, you would use `[contact_email]` to display it
 
 ## Changelog
 
+### 1.0.1 - 2025-07-09
+  * Display an error message if user tries to register a token that already exists
+  * When setting `Replace existing tokens if a token with the same name already exists.` as TRUE, tokens that existed previously in the system were removed (excluding the ones that were included in the file). Now will preserve the existing data and only replace the duplicate tokens.
+
 ### 1.0.0 - 2025-06-16
 
 *   Initial release.
