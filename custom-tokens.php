@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Custom Tokens
  * Description: A plugin to create and manage custom tokens (shortcodes)
- * Version: 1.0.0
+ * Version: 1.0.1
  * Author: Kyle Weidner
  */
 
@@ -62,37 +62,35 @@ final class Custom_Tokens_Plugin {
         $this->tokens_cache = $tokens;
     }
 
-    /**
-     * Handles all form submissions from the admin pages (add, remove, import).
-     */
     public function handle_form_actions() {
-        // Security check: Verify nonce and presence of required fields.
         if ( ! isset( $_POST['token_action'], $_POST['_token_nonce'] ) || ! wp_verify_nonce( $_POST['_token_nonce'], 'token_actions_nonce' ) ) {
             return;
         }
 
-        $action = sanitize_key( $_POST['token_action'] );
+        $action        = sanitize_key( $_POST['token_action'] );
         $redirect_slug = '';
+        $message_key   = '';
 
-        // Route the action to the appropriate handler function.
         switch ( $action ) {
             case 'add_token':
-                $this->add_token();
+                $message_key   = $this->add_token(); // Capture the result here
                 $redirect_slug = 'custom-tokens';
                 break;
             case 'remove_token':
                 $this->remove_token();
+                $message_key   = 'remove_success'; // For consistency
                 $redirect_slug = 'custom-tokens';
                 break;
             case 'import_tokens':
                 $this->import_tokens();
+                $message_key   = 'import_success'; // For consistency
                 $redirect_slug = 'custom-tokens-import-export';
                 break;
         }
 
-        // Redirect back to the correct page with a success message.
         if ( ! empty( $redirect_slug ) ) {
-            wp_safe_redirect( admin_url( 'admin.php?page=' . $redirect_slug . '&message=' . $action . '_success' ) );
+            // Redirect with the correct message key now
+            wp_safe_redirect( admin_url( 'admin.php?page=' . $redirect_slug . '&message=' . $message_key ) );
             exit;
         }
     }
@@ -145,16 +143,19 @@ final class Custom_Tokens_Plugin {
         add_settings_field( 'add_new_token', 'Add New Token', [ $this, 'render_add_new_field' ], 'custom-tokens', 'tokens_section' );
     }
 
-    /**
-     * Renders the main "Manage Tokens" admin page.
-     */
     public function render_tokens_page() {
         ?>
         <div class="wrap">
             <h1>Manage Tokens</h1>
-            <?php if ( isset( $_GET['message'] ) ) : ?>
-                <div id="message" class="updated notice is-dismissible"><p><?php echo esc_html( $this->get_user_message( $_GET['message'] ) ); ?></p></div>
-            <?php endif; ?>
+            <?php
+            if ( ! empty( $_GET['message'] ) ) {
+                $message_key  = sanitize_key( $_GET['message'] );
+                $message_text = $this->get_user_message( $message_key );
+                // Use 'error' class for errors, 'updated' (which becomes notice-success) for success
+                $notice_class = ( strpos( $message_key, 'error' ) !== false ) ? 'error' : 'updated';
+                printf( '<div id="message" class="%s notice is-dismissible"><p>%s</p></div>', esc_attr( $notice_class ), esc_html( $message_text ) );
+            }
+            ?>
             <form action="options.php" method="post">
                 <?php
                 settings_fields( 'tokens_settings_group' );
@@ -284,25 +285,34 @@ final class Custom_Tokens_Plugin {
 
     /**
      * Handles the logic for adding a new token.
+     * Returns a message key for the result.
      */
     private function add_token() {
-        if ( empty( $_POST['new_token'] ) || ! is_array( $_POST['new_token'] ) ) return;
+        if ( empty( $_POST['new_token'] ) || ! is_array( $_POST['new_token'] ) ) {
+            return 'add_error_general';
+        }
 
         $new_token = stripslashes_deep( $_POST['new_token'] );
-        $name = sanitize_text_field( $new_token['name'] );
+        $name      = sanitize_text_field( $new_token['name'] );
 
-        // Validate the new token's name.
-        if ( empty( $name ) || ! preg_match( '/^[a-zA-Z0-9_]+$/', $name ) ) return;
+        if ( empty( $name ) || ! preg_match( '/^[a-zA-Z0-9_]+$/', $name ) ) {
+            return 'add_error_invalid_name';
+        }
 
-        $all_tokens = $this->get_all_tokens();
-        // Prevent creating a token that already exists.
-        if ( isset( $all_tokens[ $name ] ) ) return;
+        $all_tokens                 = $this->get_all_tokens();
+        $existing_token_names_lower = array_map( 'strtolower', array_keys( $all_tokens ) );
+
+        if ( in_array( strtolower( $name ), $existing_token_names_lower, true ) ) {
+            return 'add_error_duplicate';
+        }
 
         $all_tokens[ $name ] = [
             'label' => sanitize_text_field( $new_token['label'] ),
             'value' => sanitize_text_field( $new_token['value'] ),
         ];
         $this->update_all_tokens( $all_tokens );
+
+        return 'add_success';
     }
 
     /**
@@ -327,24 +337,47 @@ final class Custom_Tokens_Plugin {
 
         $import_data = json_decode( stripslashes( $_POST['import_tokens_data'] ), true );
 
-        // Validate that the JSON is properly structured.
         if ( json_last_error() !== JSON_ERROR_NONE || empty( $import_data ) || ! isset( $import_data['tokens'] ) || ! is_array( $import_data['tokens'] ) ) {
             return;
         }
 
-        $replace = $import_data['replace_existing'] ?? false;
-        // If not replacing, get current tokens. If replacing, start with an empty array.
-        $current_tokens = $replace ? [] : $this->get_all_tokens();
+        $replace        = ! empty( $import_data['replace_existing'] );
+        $updated_tokens = $this->get_all_tokens();
 
-        // Convert the imported indexed array to an associative array with token names as keys.
-        // This prepares it for sanitization and merging.
-        $import_array = array_column( $import_data['tokens'], null, 'name' );
-
-        // Sanitize all imported data before use.
+        $import_array    = array_column( $import_data['tokens'], null, 'name' );
         $imported_tokens = $this->sanitize_token_data( $import_array );
 
-        // Merge new tokens with existing ones and save.
-        $updated_tokens = array_merge( $current_tokens, $imported_tokens );
+        // Create a map of lowercase token names to their original cased version for comparison.
+        $lowercase_map = [];
+        foreach ( array_keys( $updated_tokens ) as $token_name ) {
+            $lowercase_map[ strtolower( $token_name ) ] = $token_name;
+        }
+
+        foreach ( $imported_tokens as $name => $data ) {
+            $name_lower = strtolower( $name );
+
+            // Check if a case-insensitive match exists.
+            if ( isset( $lowercase_map[ $name_lower ] ) ) {
+                // A token with the same name (but maybe different case) already exists.
+                if ( $replace ) {
+                    // Get the original, cased key and remove the old entry.
+                    $original_key = $lowercase_map[ $name_lower ];
+                    unset( $updated_tokens[ $original_key ] );
+
+                    // Add the new token with its specified casing.
+                    $updated_tokens[ $name ] = $data;
+                    // Update the map to handle other potential duplicates in the same import file.
+                    $lowercase_map[ $name_lower ] = $name;
+                }
+                // If not replacing, we do nothing, preserving the existing token.
+            } else {
+                // This is a completely new token.
+                $updated_tokens[ $name ] = $data;
+                // Add it to the map to handle potential duplicates within the same import file.
+                $lowercase_map[ $name_lower ] = $name;
+            }
+        }
+
         $this->update_all_tokens( $updated_tokens );
     }
 
@@ -371,15 +404,20 @@ final class Custom_Tokens_Plugin {
     }
 
     /**
-     * Returns a user-friendly message based on a message code from the URL.
+     * Translates message keys from the URL into user-friendly strings.
+     *
+     * @param string $key The message key from the URL.
+     * @return string The display message.
      */
-    private function get_user_message( $message_code ) {
+    private function get_user_message( $key ) {
         $messages = [
-            'add_token_success' => 'Token added successfully.',
-            'remove_token_success' => 'Token removed successfully.',
-            'import_tokens_success' => 'Tokens imported successfully.',
+            'add_success'            => 'Token added successfully.',
+            'remove_success'         => 'Token removed successfully.',
+            'import_success'         => 'Tokens imported successfully.',
+            'add_error_duplicate'    => 'Error: A token with that name already exists. Token names must be unique.',
+            'add_error_invalid_name' => 'Error: Invalid token name format. Please use only letters, numbers, and underscores.',
         ];
-        return $messages[ sanitize_key( $message_code ) ] ?? 'Settings saved.';
+        return $messages[ $key ] ?? 'An unknown action occurred.';
     }
 }
 
