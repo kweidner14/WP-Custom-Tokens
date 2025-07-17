@@ -209,6 +209,14 @@
             const fileName = `tokens_export_${new Date().toISOString().split('T')[0]}.csv`;
             triggerDownload(content, 'data:text/csv;charset=utf-8,', fileName);
         });
+
+        // --- REMOVE ALL TOKENS ---
+        $('#remove_all_tokens_btn').on('click', function(e) {
+            e.preventDefault();
+            if (confirm('Are you sure you want to permanently delete ALL tokens? This action cannot be undone.')) {
+                submitAction('remove_all_tokens', {});
+            }
+        });
     });
 
 })(jQuery);
