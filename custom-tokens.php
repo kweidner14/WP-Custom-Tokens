@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Custom Tokens
  * Description: A plugin to create and manage custom tokens (shortcodes)
- * Version: 1.0.1
+ * Version: 1.0.2
  * Author: Kyle Weidner
  */
 
@@ -62,6 +62,13 @@ final class Custom_Tokens_Plugin {
         $this->tokens_cache = $tokens;
     }
 
+    /**
+     * Removes all tokens from the database.
+     */
+    private function remove_all_tokens() {
+        $this->update_all_tokens( [] );
+    }
+
     public function handle_form_actions() {
         if ( ! isset( $_POST['token_action'], $_POST['_token_nonce'] ) || ! wp_verify_nonce( $_POST['_token_nonce'], 'token_actions_nonce' ) ) {
             return;
@@ -86,6 +93,12 @@ final class Custom_Tokens_Plugin {
                 $message_key   = 'import_success'; // For consistency
                 $redirect_slug = 'custom-tokens-import-export';
                 break;
+            case 'remove_all_tokens':
+                $this->remove_all_tokens();
+                $message_key   = 'remove_all_success';
+                $redirect_slug = 'custom-tokens';
+                break;
+
         }
 
         if ( ! empty( $redirect_slug ) ) {
@@ -202,6 +215,16 @@ final class Custom_Tokens_Plugin {
                 <button type="button" id="export_tokens_csv_btn" class="button button-secondary" style="margin-left: 10px;">Export All Tokens as CSV</button>
             </div>
         </div>
+
+        <div class="card" style="border: 1px solid #d63638; padding: 10px 20px;">
+            <h2 style="color: #d63638;">Danger Zone</h2>
+            <p><strong>Warning:</strong> The action below is destructive and cannot be undone.</p>
+            <p>
+                <button id="remove_all_tokens_btn" class="button button-primary" style="background-color: #d63638; border-color: #b82f2f;">Remove All Tokens</button>
+            </p>
+            <p class="description">This will permanently delete all tokens from the database.</p>
+        </div>
+
         <?php
     }
 
