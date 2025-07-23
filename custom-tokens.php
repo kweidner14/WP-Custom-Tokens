@@ -439,6 +439,7 @@ final class Custom_Tokens_Plugin {
             'import_success'         => 'Tokens imported successfully.',
             'add_error_duplicate'    => 'Error: A token with that name already exists. Token names must be unique.',
             'add_error_invalid_name' => 'Error: Invalid token name format. Please use only letters, numbers, and underscores.',
+            'remove_all_success'     => 'All tokens have been successfully removed.',
         ];
         return $messages[ $key ] ?? 'An unknown action occurred.';
     }
